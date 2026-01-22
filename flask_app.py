@@ -426,6 +426,10 @@ def get_kr_signals():
             signal_date = row['signal_date']
             
             # 제외 조건
+            # [Sanitization] Ignore future dates
+            if signal_date > today:
+                continue
+                
             if contraction > 0.8:  # 수축 미완료
                 continue
             if foreign_5d < 0 and inst_5d < 0:  # 수급 모두 이탈
