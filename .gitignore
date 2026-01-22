@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment variables (CRITICAL - never commit!)
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node.js (Frontend)
+node_modules/
+.next/
+out/
+.turbo/
+
+# Build artifacts
+*.map
+
+# Debug
+debug_*.txt
+curl_output.txt
+
+# Temp files
+temp_*.py
+temp_*.html
