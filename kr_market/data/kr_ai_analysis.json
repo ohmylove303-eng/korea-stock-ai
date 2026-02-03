@@ -30,8 +30,8 @@
         "marcap": "N/A"
       },
       "theme": "반도체",
-      "current_price": 105800,
-      "return_pct": -1.31,
+      "current_price": 106300,
+      "return_pct": -0.84,
       "news": [
         {
           "title": "ISC, AI 반도체 테스트 소켓 수요 급증에 '함박웃음'",
@@ -99,8 +99,8 @@
         "marcap": "N/A"
       },
       "theme": "반도체",
-      "current_price": 65800,
-      "return_pct": 1.86,
+      "current_price": 65700,
+      "return_pct": 1.7,
       "news": [],
       "gpt_recommendation": {
         "action": "HOLD",
@@ -152,8 +152,8 @@
         "marcap": "31,664억원"
       },
       "theme": null,
-      "current_price": 93400,
-      "return_pct": 6.38,
+      "current_price": 93300,
+      "return_pct": 6.26,
       "news": [],
       "gpt_recommendation": {
         "action": "HOLD",
@@ -205,8 +205,8 @@
         "marcap": "75,389억원"
       },
       "theme": null,
-      "current_price": 67100,
-      "return_pct": 12.77,
+      "current_price": 66800,
+      "return_pct": 12.27,
       "news": [],
       "gpt_recommendation": {
         "action": "HOLD",
@@ -311,8 +311,8 @@
         "marcap": "205,526억원"
       },
       "theme": null,
-      "current_price": 29000,
-      "return_pct": 3.39,
+      "current_price": 29100,
+      "return_pct": 3.74,
       "news": [],
       "gpt_recommendation": {
         "action": "HOLD",
@@ -364,8 +364,8 @@
         "marcap": "263,574억원"
       },
       "theme": null,
-      "current_price": 100200,
-      "return_pct": 4.27,
+      "current_price": 100500,
+      "return_pct": 4.58,
       "news": [
         "하나금융, 1분기 호실적 발표... 주주환원 확대 기대감↑",
         "정부 '기업 밸류업 프로그램' 본격화, 저PBR 금융주 수혜 전망",
@@ -421,8 +421,8 @@
         "marcap": "N/A"
       },
       "theme": null,
-      "current_price": 183400,
-      "return_pct": -4.58,
+      "current_price": 179600,
+      "return_pct": -6.56,
       "news": [
         {
           "date": "2024-05-21",
@@ -490,8 +490,8 @@
         "marcap": "N/A"
       },
       "theme": null,
-      "current_price": 59600,
-      "return_pct": 2.58,
+      "current_price": 59200,
+      "return_pct": 1.89,
       "news": [
         "클래시스, 1분기 역대 최대 실적 달성... 해외 매출 성장세 '뚜렷'",
         "증권가, 클래시스 목표주가 상향... '브라질 등 신흥 시장 모멘텀 기대'",
@@ -547,8 +547,8 @@
         "marcap": "N/A"
       },
       "theme": null,
-      "current_price": 249000,
-      "return_pct": 6.64,
+      "current_price": 255000,
+      "return_pct": 9.21,
       "news": [
         "미국 국제무역위원회(ITC), 메디톡스와의 보툴리눔 톡신 균주 소송에서 휴젤 승소 최종 판결 (주요 불확실성 해소)",
         "보툴리눔 톡신 '레티보(Letybo)'의 미국 시장 본격 진출에 따른 실적 성장 기대감 고조",
@@ -604,8 +604,8 @@
         "marcap": "5,171,510억원"
       },
       "theme": "반도체",
-      "current_price": 759000,
-      "return_pct": 1.34,
+      "current_price": 755000,
+      "return_pct": 0.8,
       "news": [],
       "gpt_recommendation": {
         "action": "HOLD",
@@ -657,8 +657,8 @@
         "marcap": "170,735억원"
       },
       "theme": "반도체",
-      "current_price": 171000,
-      "return_pct": -5.0,
+      "current_price": 170400,
+      "return_pct": -5.33,
       "news": [],
       "gpt_recommendation": {
         "action": "HOLD",
@@ -710,8 +710,8 @@
         "marcap": "9,621,273억원"
       },
       "theme": "반도체",
-      "current_price": 154800,
-      "return_pct": 7.57,
+      "current_price": 152300,
+      "return_pct": 5.84,
       "news": [],
       "gpt_recommendation": {
         "action": "HOLD",
@@ -763,8 +763,8 @@
         "marcap": "48,115억원"
       },
       "theme": "AI전력",
-      "current_price": 28850,
-      "return_pct": 11.39,
+      "current_price": 28150,
+      "return_pct": 8.69,
       "news": [],
       "gpt_recommendation": {
         "action": "HOLD",
@@ -816,8 +816,8 @@
         "marcap": "1,098,451억원"
       },
       "theme": "환율수혜",
-      "current_price": 550000,
-      "return_pct": 30.33,
+      "current_price": 529000,
+      "return_pct": 25.36,
       "news": [],
       "gpt_recommendation": {
         "action": "HOLD",
@@ -869,8 +869,8 @@
         "marcap": "156,257억원"
       },
       "theme": "AI전력",
-      "current_price": 533000,
-      "return_pct": 1.33,
+      "current_price": 517000,
+      "return_pct": -1.71,
       "news": [
         "LS ELECTRIC, 북미 데이터센터향 변압기 수주 랠리에 주가 강세",
         "전력기기 슈퍼사이클 도래, LS ELECTRIC 실적 기대감 고조",
@@ -995,8 +995,8 @@
         "marcap": "67,167억원"
       },
       "theme": "AI인프라",
-      "current_price": 48600,
-      "return_pct": -2.21,
+      "current_price": 52200,
+      "return_pct": 5.03,
       "news": [
         "카카오페이, 1분기 실적 시장 기대치 하회... 수익성 개선 과제",
         "알리바바, 카카오페이 지분 블록딜 가능성 지속... 오버행 우려 상존",
@@ -1052,8 +1052,8 @@
         "marcap": "162,393억원"
       },
       "theme": "방산",
-      "current_price": 155900,
-      "return_pct": -6.42,
+      "current_price": 165700,
+      "return_pct": -0.54,
       "news": [
         "KAI, 폴란드 이어 중동·아프리카로 FA-50 수출 확대 기대감",
         "KF-21 보라매, 공중급유 시험 성공...전력화 '성큼'",
@@ -1110,8 +1110,8 @@
         "marcap": "121,459억원"
       },
       "theme": "방산",
-      "current_price": 535000,
-      "return_pct": -3.78,
+      "current_price": 529000,
+      "return_pct": -4.86,
       "news": [
         "사우디아라비아와 4.3조원 규모 '천궁-II' 대규모 수출 계약 체결",
         "수출 호조에 따른 2024년 역대 최대 실적 달성 기대감",
@@ -1167,8 +1167,8 @@
         "marcap": "179,811억원"
       },
       "theme": "환율수혜",
-      "current_price": 105400,
-      "return_pct": -2.04,
+      "current_price": 112200,
+      "return_pct": 4.28,
       "news": [
         "SK온, 흑자전환 가시성↑…하반기 실적 개선 기대감",
         "유가 변동성 확대, SK이노베이션 정유 부문 실적 영향은?",
@@ -1224,8 +1224,8 @@
         "marcap": "N/A"
       },
       "theme": "AI인프라",
-      "current_price": 62500,
-      "return_pct": -1.26,
+      "current_price": 64300,
+      "return_pct": 1.58,
       "news": [],
       "gpt_recommendation": {
         "action": "HOLD",
@@ -1277,8 +1277,8 @@
         "marcap": "662,305억원"
       },
       "theme": "조선",
-      "current_price": 622000,
-      "return_pct": -1.43,
+      "current_price": 613000,
+      "return_pct": -2.85,
       "news": [
         "HD현대중공업, 페루서 함정 4척 6200억원에 수주…중남미 방산 수출 확대",
         "카타르 2차 LNG 프로젝트 발주 임박, 국내 조선 3사 수주 기대감 고조",
@@ -1335,8 +1335,8 @@
         "marcap": "257,526억원"
       },
       "theme": "조선",
-      "current_price": 29750,
-      "return_pct": -1.33,
+      "current_price": 30100,
+      "return_pct": -0.17,
       "news": [
         "삼성중공업, 1.5조원 규모 FLNG 수주...올해 목표 83% 달성",
         "신조선가 16년만에 최고치...조선업계, 하반기 흑자전환 기대감",
@@ -1392,8 +1392,8 @@
         "marcap": "265,807억원"
       },
       "theme": "환율수혜",
-      "current_price": 331500,
-      "return_pct": -5.69,
+      "current_price": 359500,
+      "return_pct": 2.28,
       "news": [
         "2분기 실적, 철강 시황 부진으로 시장 기대치 하회 전망",
         "아르헨티나 리튬 염호 2단계 상공정 착공, 미래 성장 동력 확보 가속화",

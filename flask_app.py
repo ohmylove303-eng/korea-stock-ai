@@ -47,18 +47,26 @@ from datetime import timedelta
 # [NICE] Theme Manager for dynamic theme lookup
 from kr_market.theme_manager import ThemeManager
 
-# KRX 종목 리스트 초기화
+# KRX 종목 리스트 초기화 (비동기 로딩)
 KRX_STOCKS = pd.DataFrame()
+
+def load_krx_stocks():
+    global KRX_STOCKS
+    if FDR_AVAILABLE:
+        print("⏳ KRX 종목 리스트 다운로드 시작 (백그라운드)...")
+        try:
+            KRX_STOCKS = fdr.StockListing('KRX')
+            if 'Code' in KRX_STOCKS.columns and 'Symbol' not in KRX_STOCKS.columns:
+                KRX_STOCKS['Symbol'] = KRX_STOCKS['Code']
+            print(f"✅ KRX 종목 리스트 로드 완료: {len(KRX_STOCKS)}개 종목")
+        except Exception as e:
+            print(f"⚠️ KRX 종목 리스트 로드 실패 (검색 기능 제한됨): {e}")
+
+# Start background loading
 if FDR_AVAILABLE:
-    print("⏳ KRX 종목 리스트 다운로드 중... (서버 시작 시 1회)")
-    try:
-        KRX_STOCKS = fdr.StockListing('KRX')
-        if 'Code' in KRX_STOCKS.columns and 'Symbol' not in KRX_STOCKS.columns:
-            KRX_STOCKS['Symbol'] = KRX_STOCKS['Code']
-        print(f"✅ KRX 종목 리스트 로드 완료: {len(KRX_STOCKS)}개 종목")
-    except Exception as e:
-        print(f"⚠️ KRX 종목 리스트 로드 실패 (검색 기능 제한됨): {e}")
-    KRX_STOCKS = pd.DataFrame()
+    t = threading.Thread(target=load_krx_stocks)
+    t.daemon = True
+    t.start()
 
 # [NEW] pykrx for supply data (foreign/institutional trading)
 try:
@@ -968,6 +976,155 @@ def kr_vcp_scan():
         import traceback
         traceback.print_exc()
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+# ==================== 종가베팅 V2 API (ENGINE MODULE) ====================
+
+@app.route('/api/kr/jongga-v2')
+def api_jongga_v2():
+    """종가베팅 V2 시그널 조회 (데이터 파일 기반)"""
+    try:
+        # 데이터 파일 경로
+        data_file = 'data/jongga_v2_latest.json'
+        
+        if not os.path.exists(data_file):
+            return jsonify({
+                'signals': [],
+                'count': 0,
+                'message': '시그널 데이터가 없습니다. /api/kr/jongga-v2/run 을 실행하세요.'
+            })
+        
+        with open(data_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        return jsonify(data)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/kr/jongga-v2/run', methods=['POST'])
+def api_jongga_v2_run():
+    """종가베팅 V2 스크리너 실행"""
+    try:
+        import asyncio
+        from engine.generator import run_screener
+        
+        # 자본금 파라미터 (기본 5천만원)
+        data = request.json or {}
+        capital = data.get('capital', 50_000_000)
+        markets = data.get('markets', ['KOSPI', 'KOSDAQ'])
+        
+        # 비동기 실행
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        result = loop.run_until_complete(run_screener(
+            capital=capital,
+            markets=markets,
+            save_result=True
+        ))
+        
+        loop.close()
+        
+        return jsonify({
+            'status': 'success',
+            'signals_count': len(result.signals),
+            'processing_time_ms': result.processing_time_ms,
+            'updated_at': result.updated_at
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/kr/jongga-v2/history')
+def api_jongga_v2_history():
+    """종가베팅 V2 히스토리 날짜 목록"""
+    try:
+        import glob
+        
+        history_files = glob.glob('data/jongga_v2_results_*.json')
+        dates = []
+        
+        for f in history_files:
+            # 파일명에서 날짜 추출: jongga_v2_results_20260202.json
+            basename = os.path.basename(f)
+            date_part = basename.replace('jongga_v2_results_', '').replace('.json', '')
+            if len(date_part) == 8:
+                formatted = f"{date_part[:4]}-{date_part[4:6]}-{date_part[6:8]}"
+                dates.append(formatted)
+        
+        dates.sort(reverse=True)
+        
+        return jsonify({
+            'dates': dates,
+            'count': len(dates)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/kr/jongga-v2/history/<date>')
+def api_jongga_v2_history_date(date):
+    """특정 날짜의 종가베팅 V2 시그널 조회"""
+    try:
+        date_str = date.replace('-', '')
+        data_file = f'data/jongga_v2_results_{date_str}.json'
+        
+        if not os.path.exists(data_file):
+            return jsonify({'error': f'No data for {date}'}), 404
+        
+        with open(data_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        return jsonify(data)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/kr/jongga-v2/status')
+def api_jongga_v2_status():
+    """종가베팅 V2 데이터 상태 확인"""
+    try:
+        data_file = 'data/jongga_v2_latest.json'
+        
+        if not os.path.exists(data_file):
+            return jsonify({
+                'status': 'NO_DATA',
+                'last_updated': None,
+                'signals_count': 0
+            })
+        
+        # 파일 수정 시간
+        mod_time = datetime.fromtimestamp(os.path.getmtime(data_file))
+        
+        with open(data_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        signals = data.get('signals', [])
+        
+        # 등급별 카운트
+        grade_counts = {}
+        for s in signals:
+            grade = s.get('grade', 'C')
+            grade_counts[grade] = grade_counts.get(grade, 0) + 1
+        
+        return jsonify({
+            'status': 'OK',
+            'last_updated': mod_time.isoformat(),
+            'signals_count': len(signals),
+            'by_grade': grade_counts,
+            'date': data.get('date', ''),
+            'processing_time_ms': data.get('processing_time_ms', 0)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 
