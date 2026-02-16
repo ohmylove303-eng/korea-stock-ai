@@ -190,26 +190,57 @@ def analyze_with_gemini(signal_data: Dict, market_indices: Dict, news: List[Dict
         print(f"DEBUG: Gemini API 호출 시작 - {signal_data.get('name')}", file=sys.stderr)
         
         from google import genai
+        # from google.genai import types # 불필요
+        
         client = genai.Client(api_key=GOOGLE_API_KEY)
-        model_id = 'gemini-2.5-pro'
+        model_id = 'gemini-2.0-flash'
         
-        prompt = f"""당신은 한국 주식시장 전문 애널리스트입니다. 최신 정보를 바탕으로 매수/관망/매도 추천을 해주세요.
+        # 재무 정보 포매팅
+        fund = signal_data.get('fundamentals', {})
+        fund_str = f"PER: {fund.get('per', 'N/A')}, PBR: {fund.get('pbr', 'N/A')}, ROE: {fund.get('roe', 'N/A')}, 시총: {fund.get('marcap', 'N/A')}"
         
-## 분석 대상: {signal_data.get('name')} ({signal_data.get('ticker')})
+        # 프롬프트 강화
+        prompt = f"""당신은 한국 주식시장 전문 애널리스트입니다. 
+제공된 데이터와 'Google Search' 도구를 사용하여 최신 뉴스, 공시, 시장 동향을 검색하고 종합적으로 분석하여 매수/관망/매도 추천을 해주세요.
 
-## 분석 데이터
-- VCP Score: {signal_data.get('score')}
-- 수축비율: {signal_data.get('contraction_ratio')}
-- 외국인/기관 수급: {signal_data.get('foreign_5d', 0):,} / {signal_data.get('inst_5d', 0):,}
+## 1. 분석 대상
+- 종목명: {signal_data.get('name')} ({signal_data.get('ticker')})
+- 테마/섹터: {signal_data.get('theme', 'N/A')}
 
-## 응답 형식 (JSON만 출력)
+## 2. 핵심 지표
+- VCP Score: {signal_data.get('score')} / 100
+- 수축비율: {signal_data.get('contraction_ratio')} (낮을수록 좋음)
+- 수급(5일): 외국인 {signal_data.get('foreign_5d', 0):,} / 기관 {signal_data.get('inst_5d', 0):,}
+- 재무: {fund_str}
+
+## 3. 분석 요청 사항 (Deep Reasoning)
+각 전략별 체크리스트를 기반으로 **실시간 정보**를 검색하고 엄밀히 검증하세요.
+
+### [VCP & 종가베팅 검증]
+- **변동성 축소**: 최근 주가 등락 폭이 줄어들며 수렴하고 있는가? (차트/뉴스 확인)
+- **거래량 패턴**: 주가 조정 시 거래량이 감소하고, 상승 시 증가하는가?
+- **매물대**: 상단 악성 매물대 소화 과정이 뉴스나 공시로 확인되는가?
+
+### [NICE & Palantir 모델 검증]
+- **L2 수급**: 외국인/기관의 매수가 일회성이 아니라 '연속적'인가? (수급 질적 분석)
+- **L3 심리**: 뉴스 헤드라인이 긍정적이나 과열되지는 않았는가?
+- **L4 매크로**: 현재 테마({signal_data.get('theme', 'N/A')})가 시장 주도 섹터인가?
+
+## 4. 실행 지침
+1. **Google Search 필수**: 위 질문에 답하기 위해 '최근 뉴스', '수급 특징', '섹터 동향'을 반드시 검색하세요.
+2. 검색 결과가 없으면 솔직하게 "근거 부족"으로 표기하세요.
+3. 과거 데이터가 아닌 **오늘/어제** 기준의 최신 정보를 반영하세요.
+
+## 5. 응답 형식 (JSON)
 {{
   "recommendation": {{
-      "action": "BUY/HOLD/SELL",
+      "action": "BUY" or "HOLD" or "SELL",
       "confidence": 0-100,
-      "reason": "한줄 핵심 근거"
+      "reason": "VCP 관점에서 거래량 감소 확인됨. 수급 측면에서 외인 3일 연속 매수 포착. 뉴스({signal_data.get('name')} 수주 공시)에 따른 상승 여력 있음." 
   }},
-  "news_found": []
+  "news_found": [
+      {{ "title": "검색된 뉴스 제목", "url": "링크", "date": "날짜" }}
+  ]
 }}"""
 
         response = client.models.generate_content(
@@ -217,11 +248,24 @@ def analyze_with_gemini(signal_data: Dict, market_indices: Dict, news: List[Dict
             contents=prompt,
             config={
                 'temperature': 0.1,
-                # 'response_mime_type': 'application/json'  # 2.5 Pro에서 불안정할 수 있어 제거
+                'tools': [{'google_search': {}}] # Google Search Grounding 활성화
             }
         )
         
         print(f"DEBUG: Gemini 응답 수신 완료", file=sys.stderr)
+        
+        # Grounding Metadata 추출 (실제 검색된 링크)
+        grounding_links = []
+        if response.candidates and response.candidates[0].grounding_metadata:
+             meta = response.candidates[0].grounding_metadata
+             if meta.grounding_chunks:
+                 for chunk in meta.grounding_chunks:
+                     if chunk.web:
+                         grounding_links.append({
+                             'title': chunk.web.title or '관련 뉴스',
+                             'url': chunk.web.uri,
+                             'date': '최신'
+                         })
         
         result_text = response.text.strip()
         # 마크다운 코드 블록 제거
@@ -230,19 +274,29 @@ def analyze_with_gemini(signal_data: Dict, market_indices: Dict, news: List[Dict
             result_text = '\n'.join(lines[1:-1] if lines[-1] == '```' else lines[1:])
         result_text = result_text.strip()
         
-        # JSON 포맷이 아닌 경우 처리
-        if not result_text.startswith('{'):
-             # 강제로 JSON 찾기
-             start = result_text.find('{')
-             end = result_text.rfind('}')
-             if start != -1 and end != -1:
-                 result_text = result_text[start:end+1]
-        
-        result = json.loads(result_text)
-        return {
-            'recommendation': result.get('recommendation', {'action': 'HOLD', 'confidence': 50, 'reason': '분석 실패'}),
-            'grounding_news': result.get('news_found', [])
-        }
+        # JSON 파싱
+        try:
+            if not result_text.startswith('{'):
+                start = result_text.find('{')
+                end = result_text.rfind('}')
+                if start != -1 and end != -1:
+                    result_text = result_text[start:end+1]
+            
+            result = json.loads(result_text)
+            
+            # 검색 도구가 찾은 링크와 모델이 생성한 링크 병합
+            ai_news = result.get('news_found', [])
+            final_news = grounding_links + ai_news
+            
+            return {
+                'recommendation': result.get('recommendation', {'action': 'HOLD', 'confidence': 50, 'reason': '분석 실패'}),
+                'grounding_news': final_news[:5] # 최대 5개
+            }
+        except json.JSONDecodeError:
+            return {
+                'recommendation': {'action': 'HOLD', 'confidence': 50, 'reason': '응답 형식 오류'},
+                'grounding_news': grounding_links[:3]
+            }
     except Exception as e:
         import sys
         print(f"ERROR: Gemini analysis failed: {e}", file=sys.stderr)
@@ -309,64 +363,119 @@ JSON만 응답하세요."""
 
 
 def calculate_nice_layers(signal_data: Dict, theme: str) -> Dict:
-    """NICE 5-Layer 점수 계산 - 한국주식 맞춤형"""
+    """NICE 5-Layer 점수 계산 - 한국주식 맞춤형
+    
+    모든 레이어 0-100 스케일 통일. total = 가중평균(0-100).
+    """
     vcp_score = signal_data.get('score', 50)
     foreign_5d = signal_data.get('foreign_5d', 0)
     inst_5d = signal_data.get('inst_5d', 0)
     
-    # L1: 기술적 분석 (Tracker에서 계산된 점수 사용)
-    # 기존 VCP 점수 단순 변환이 아닌, Gates에서 검증된 Technical Score 사용
-    # signal_data에 'nice_tech_score'가 있으면 사용, 없으면 legacy fallback
+    # ── L1: 기술적 분석 (0-100) ──
+    # Tracker에서 계산된 nice_tech_score 사용, 없으면 VCP score fallback
     l1_tech = signal_data.get('nice_tech_score', min(100, int(vcp_score * 1.2)))
     
-    # Palantir Bonus (이미 Technical Score에 반영되었을 수 있으나, AI 관점에서 추가 보정 가능)
     is_palantir = signal_data.get('is_palantir', False)
     if is_palantir:
-        l1_tech = max(l1_tech, 95) # Palantir 강제 상향
-        
-    l1_tech = int(l1_tech) # Ensure int
+        l1_tech = max(l1_tech, 95)
+    l1_tech = max(0, min(100, int(l1_tech)))
 
-    # L2: 수급 분석 (외국인 + 기관 순매수)
+    # ── L2: 수급 분석 (0-100) ──
+    # 외국인+기관 순매수 합산 → 연속 정규화
     supply_flow = foreign_5d + inst_5d
-    if supply_flow > 500000:
-        l2_supply = 30
-    elif supply_flow > 100000:
-        l2_supply = 25
+    if supply_flow > 10_000_000_000:       # 100억 이상
+        l2_supply = 95
+    elif supply_flow > 1_000_000_000:      # 10억 이상
+        l2_supply = 80
+    elif supply_flow > 100_000_000:        # 1억 이상
+        l2_supply = 65
     elif supply_flow > 0:
+        l2_supply = 50
+    elif supply_flow > -100_000_000:       # 소폭 유출
+        l2_supply = 35
+    elif supply_flow > -1_000_000_000:     # 10억 유출
         l2_supply = 20
-    else:
+    else:                                   # 대량 유출
         l2_supply = 10
+    l2_supply = max(0, min(100, l2_supply))
     
-    # L3: 시장 심리 (AI 합의 기반)
+    # ── L3: 시장 심리 / AI 합의 (0-100) ──
     gpt_action = signal_data.get('gpt_recommendation', {}).get('action', 'HOLD')
     gemini_action = signal_data.get('gemini_recommendation', {}).get('action', 'HOLD')
-    if gpt_action == 'BUY' and gemini_action == 'BUY':
-        l3_sentiment = 80
+    
+    # AI 실패 여부 체크
+    gpt_reason = signal_data.get('gpt_recommendation', {}).get('reason', '')
+    gemini_reason = signal_data.get('gemini_recommendation', {}).get('reason', '')
+    ai_failed = '오류' in gpt_reason or '오류' in gemini_reason or 'Failed' in gpt_reason
+    
+    if ai_failed:
+        l3_sentiment = 50  # AI 미검증 — 중립 기본값
+    elif gpt_action == 'BUY' and gemini_action == 'BUY':
+        l3_sentiment = 90
     elif gpt_action == 'BUY' or gemini_action == 'BUY':
-        l3_sentiment = 60
+        l3_sentiment = 70
+    elif gpt_action == 'SELL' and gemini_action == 'SELL':
+        l3_sentiment = 15
     elif gpt_action == 'SELL' or gemini_action == 'SELL':
         l3_sentiment = 30
     else:
-        l3_sentiment = 50
+        l3_sentiment = 50  # 양쪽 HOLD
+    l3_sentiment = max(0, min(100, l3_sentiment))
     
-    # L4: 거시경제 (테마 기반 보너스)
-    l4_macro = 20
+    # ── L4: 거시경제 (0-100) ──
+    # 실제 매크로 데이터 사용: signal_data에서 macro 정보 추출
+    l4_macro = 50  # 기본 중립값
+    macro = signal_data.get('macro_data', {})
+    
+    if macro:
+        # 환율 리스크 반영 (낮을수록 좋음)
+        fx_risk = macro.get('exchange_rate', {}).get('risk_level', '')
+        if fx_risk == '안정':
+            l4_macro += 15
+        elif fx_risk == '주의':
+            l4_macro += 0
+        elif fx_risk == '위험':
+            l4_macro -= 15
+        
+        # 금리 스프레드 반영
+        spread = macro.get('interest_spread', {}).get('spread_bp', 0)
+        if spread < 50:
+            l4_macro += 10
+        elif spread > 150:
+            l4_macro -= 10
+    
+    # 테마 보너스 (현재 강세 트렌드)
     if theme in ['방산', '조선', '환율수혜']:
-        l4_macro = 32  # 현재 강세 테마
+        l4_macro += 10
     elif theme in ['반도체', 'AI인프라', 'AI전력']:
-        l4_macro = 35  # AI 인프라 투자 확대
+        l4_macro += 12
     
-    # L5: 기관/ETF 참여도
-    if inst_5d > 100000:
-        l5_inst = 28
-    elif inst_5d > 50000:
-        l5_inst = 22
+    l4_macro = max(0, min(100, l4_macro))
+
+    # ── L5: 기관/ETF 참여도 (0-100) ──
+    if inst_5d > 10_000_000_000:       # 100억 이상
+        l5_inst = 95
+    elif inst_5d > 1_000_000_000:      # 10억 이상
+        l5_inst = 80
+    elif inst_5d > 100_000_000:        # 1억 이상
+        l5_inst = 65
     elif inst_5d > 0:
-        l5_inst = 18
+        l5_inst = 50
+    elif inst_5d > -100_000_000:
+        l5_inst = 30
     else:
-        l5_inst = 12
+        l5_inst = 15
+    l5_inst = max(0, min(100, l5_inst))
     
-    total = l1_tech + l2_supply + l3_sentiment + l4_macro + l5_inst
+    # ── Total: 가중평균 (0-100) ──
+    total = (
+        l1_tech * 0.35 +
+        l2_supply * 0.20 +
+        l3_sentiment * 0.15 +
+        l4_macro * 0.10 +
+        l5_inst * 0.20
+    )
+    total = max(0, min(100, round(total, 1)))
     
     return {
         'L1_technical': l1_tech,
@@ -375,7 +484,8 @@ def calculate_nice_layers(signal_data: Dict, theme: str) -> Dict:
         'L4_macro': l4_macro,
         'L5_institutional': l5_inst,
         'total': total,
-        'max_total': 300
+        'max_total': 100,
+        'ai_verified': not ai_failed,
     }
 
 
@@ -495,12 +605,86 @@ def generate_ai_recommendations(vcp_signals: List[Dict]) -> Dict:
     # 종합 점수 기준 정렬
     analyzed_signals.sort(key=lambda x: x.get('final_recommendation_score', 0), reverse=True)
     
+    # 9. 시장 전체 AI 논평 생성
+    market_analysis = generate_market_analysis(market_indices, analyzed_signals)
+    
     return {
         'market_indices': market_indices,
         'signals': analyzed_signals,
+        'market_analysis': market_analysis,
         'generated_at': datetime.now().isoformat(),
         'signal_date': datetime.now().strftime('%Y-%m-%d')
     }
+
+
+def generate_market_analysis(market_indices: Dict, signals: List[Dict]) -> str:
+    """Gemini를 활용한 시장 전체 AI 논평 생성"""
+    if not GOOGLE_API_KEY:
+        return "AI 시장 분석을 위한 API 키가 설정되지 않았습니다."
+    
+    try:
+        from google import genai
+        client = genai.Client(api_key=GOOGLE_API_KEY)
+        
+        # 시그널 요약 정보 구성
+        top_signals = signals[:10]
+        signal_summary = "\n".join([
+            f"- {s.get('name','?')} ({s.get('ticker','?')}): "
+            f"VCP {s.get('score',0)}, 외인 {s.get('foreign_5d',0):,}, "
+            f"기관 {s.get('inst_5d',0):,}, "
+            f"Gemini: {s.get('gemini_recommendation',{}).get('action','?')}"
+            for s in top_signals
+        ])
+        
+        # 테마별 분포
+        themes = {}
+        for s in signals:
+            t = s.get('theme', '기타')
+            if t:
+                themes[t] = themes.get(t, 0) + 1
+        theme_str = ", ".join([f"{k}({v}건)" for k, v in sorted(themes.items(), key=lambda x: -x[1])[:5]])
+        
+        kospi = market_indices.get('kospi', {})
+        kosdaq = market_indices.get('kosdaq', {})
+        
+        prompt = f"""당신은 한국 주식시장 전문 데일리 브리핑 앵커입니다.
+아래 데이터를 기반으로 오늘의 시장 요약 논평을 작성하세요.
+
+## 시장 지수
+- KOSPI: {kospi.get('value', 'N/A')} ({kospi.get('change_pct', 0):+.2f}%)
+- KOSDAQ: {kosdaq.get('value', 'N/A')} ({kosdaq.get('change_pct', 0):+.2f}%)
+
+## VCP 시그널 상위 종목
+{signal_summary}
+
+## 활성 테마
+{theme_str if theme_str else '테마 데이터 없음'}
+
+## 작성 지침
+1. 전체 3~5문장으로 간결하게
+2. 시장 분위기(강세/약세/박스권)를 먼저
+3. 주목할 테마와 종목을 언급
+4. 투자자 유의사항 한 줄
+5. 반드시 한국어로 작성
+
+논평만 출력하세요 (JSON 아님, 순수 텍스트)."""
+
+        response = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=prompt,
+            config={
+                'temperature': 0.4,
+                'tools': [{'google_search': {}}]
+            }
+        )
+        
+        analysis = response.text.strip()
+        print(f"✅ 시장 전체 AI 논평 생성 완료 ({len(analysis)}자)")
+        return analysis
+        
+    except Exception as e:
+        print(f"❌ 시장 논평 생성 실패: {e}")
+        return f"시장 분석을 생성할 수 없습니다. ({str(e)[:50]})"
 
 
 from kr_market.gates import TechnicalGate_L2, FlowGate_L3
@@ -661,7 +845,7 @@ def analyze_market_theme(theme_name: str) -> Dict:
     try:
         from google import genai
         client = genai.Client(api_key=GOOGLE_API_KEY)
-        model_id = 'gemini-2.5-pro'
+        model_id = 'gemini-2.0-flash'
         
         prompt = f"""당신은 한국 주식시장 전문 애널리스트입니다.
 현재 '{theme_name}' 테마의 시장 상황과 전망을 분석해주세요.

@@ -1,0 +1,38 @@
+# K-Stock 한국주식 — Google IDX 프로젝트 설정
+#
+# Google IDX에서 프로젝트를 열 때 자동으로 적용됩니다.
+# https://idx.dev 에서 "Import a repo" 사용
+
+# 개발 환경
+idx:
+  workspace:
+    onCreate:
+      setup: |
+        # Python 백엔드 설정
+        python3 -m venv .venv
+        source .venv/bin/activate
+        pip install -r requirements.txt
+        
+        # Node.js 프론트엔드 설정
+        cd frontend && npm install && cd ..
+        
+        echo "✅ K-Stock 개발 환경 준비 완료"
+    
+    onStart:
+      backend: |
+        source .venv/bin/activate
+        python3 flask_app.py
+      
+      frontend: |
+        cd frontend && npm run dev
+
+  previews:
+    enable: true
+    previews:
+      dashboard:
+        command: ["npm", "run", "dev"]
+        cwd: frontend
+        manager: web
+        env:
+          PORT: "3000"
+          NEXT_PUBLIC_API_URL: "http://localhost:5001"

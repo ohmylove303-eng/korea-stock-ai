@@ -433,9 +433,30 @@ def get_kr_signals():
             inst_5d = int(row['inst_5d']) if pd.notna(row['inst_5d']) else 0
             signal_date = row['signal_date']
             
+            # ===== 데이터 신선도 시스템 =====
+            MAX_SIGNAL_AGE_DAYS = 7  # 7일 경과 시 만료 처리
+            try:
+                signal_date_obj = datetime.strptime(signal_date, '%Y-%m-%d').date()
+                today_obj = datetime.now().date()
+                days_old = (today_obj - signal_date_obj).days
+            except:
+                days_old = 999  # 파싱 실패 시 만료 처리
+            
+            # 신선도 상태 결정
+            if days_old <= 1:
+                freshness = 'FRESH'  # 🟢 실시간
+            elif days_old <= MAX_SIGNAL_AGE_DAYS:
+                freshness = 'RECENT'  # 🟡 최근
+            else:
+                freshness = 'EXPIRED'  # 🔴 만료
+            
             # 제외 조건
             # [Sanitization] Ignore future dates
             if signal_date > today:
+                continue
+            
+            # [NEW] 만료된 시그널 자동 필터링
+            if freshness == 'EXPIRED':
                 continue
                 
             if contraction > 0.8:  # 수축 미완료
@@ -445,26 +466,48 @@ def get_kr_signals():
             if score < 50:  # 기본 점수 미달
                 continue
             
-            # Final Score 계산
+            # Final Score 계산 (NICE 표준화)
             contraction_score = (1 - contraction) * 100
             supply_score = min((foreign_5d + inst_5d) / 100000, 30)
             today_bonus = 10 if signal_date == today else 0
             
+            # [Standardized] NICE Total Score (scaled to 100 for display)
+            # Weights: VCP(40%) + Contraction(30%) + Supply(20% * 10) + TodayBonus(10)
             final_score = (score * 0.4) + (contraction_score * 0.3) + (supply_score * 0.2 * 10) + today_bonus
             
-            # Compute nice_layers for Radar Chart (approximation based on available data)
-            L1_technical = min(int(score), 100)  # VCP score as technical
-            L2_supply = min(int((1 - contraction) * 30), 30)  # Contraction -> supply
-            L3_sentiment = 50  # Default neutral
-            L4_macro = 35  # Default
-            L5_institutional = min(int((foreign_5d + inst_5d) / 1e8), 35)  # Normalize flow
-            nice_total = L1_technical + L2_supply + L3_sentiment + L4_macro + L5_institutional
+            # Compute nice_layers for Radar Chart (all 0-100 scale)
+            L1_technical = max(0, min(int(score), 100))  # VCP score as technical
+            L2_supply = max(0, min(int((1 - contraction) * 100), 100))  # Contraction -> supply
+            
+            # L3: VCP 모드에서는 AI 분석 없음 — 수축률 기반 근사
+            L3_sentiment = max(0, min(int(50 + (1 - contraction) * 30), 100))
+            
+            # L4: 매크로 기본값 (VCP에서는 실시간 매크로 연동 없음)
+            L4_macro = 50
+            
+            # L5: 수급 금액 연속 정규화 (0-100)
+            supply_total = foreign_5d + inst_5d
+            if supply_total > 10_000_000_000:
+                L5_institutional = 95
+            elif supply_total > 1_000_000_000:
+                L5_institutional = 80
+            elif supply_total > 100_000_000:
+                L5_institutional = 65
+            elif supply_total > 0:
+                L5_institutional = 50
+            elif supply_total > -100_000_000:
+                L5_institutional = 35
+            else:
+                L5_institutional = 15
+            
+            nice_total = (L1_technical * 0.35) + (L2_supply * 0.20) + (L3_sentiment * 0.15) + (L4_macro * 0.10) + (L5_institutional * 0.20)
+            nice_total = max(0, min(100, round(nice_total, 1)))
             
             signals.append({
                 'ticker': row['ticker'],
                 'name': stock_names.get(row['ticker'], ''),
                 'market': stock_markets.get(row['ticker'], ''),
-                'theme': ThemeManager.get_theme(str(row['ticker']).zfill(6)) or '',  # [NICE] Dynamic theme lookup
+                'theme': ThemeManager.get_theme(str(row['ticker']).zfill(6)) or '',
                 'signal_date': signal_date,
                 'foreign_5d': foreign_5d,
                 'inst_5d': inst_5d,
@@ -473,6 +516,7 @@ def get_kr_signals():
                 'entry_price': round(row['entry_price'], 0) if pd.notna(row['entry_price']) else 0,
                 'status': row['status'],
                 'final_score': round(final_score, 1),
+                'nice_tech_score': L1_technical,
                 # NICE Layers for Radar Chart
                 'nice_layers': {
                     'L1_technical': L1_technical,
@@ -480,15 +524,22 @@ def get_kr_signals():
                     'L3_sentiment': L3_sentiment,
                     'L4_macro': L4_macro,
                     'L5_institutional': L5_institutional,
-                    'total': nice_total,
-                    'max_total': 300
+                    'total': round(nice_total, 1),
+                    'max_total': 100
                 },
-                # NICE Plan Fields
                 'stop_loss': row.get('stop_loss', 0),
                 'tp1': row.get('tp1', 0),
                 'tp2': row.get('tp2', 0),
                 'time_stop': row.get('time_stop', ''),
-                'min_turnover': row.get('min_turnover', 0)
+                'min_turnover': row.get('min_turnover', 0),
+                # ===== 데이터 신선도 메타데이터 =====
+                'days_old': days_old,
+                'freshness': freshness,  # FRESH, RECENT, EXPIRED
+                'metadata': {
+                    'source': 'pykrx/internal-db',
+                    'fetched_at': datetime.now().isoformat(),
+                    'is_realtime': days_old <= 1
+                }
             })
         
         # ========== 테마 종목 자동 추가 (테마 탭이 비어 있지 않도록) ==========
@@ -498,17 +549,15 @@ def get_kr_signals():
         for t_ticker in theme_tickers:
             t_ticker = str(t_ticker).zfill(6)
             if t_ticker in existing_tickers:
-                continue  # 이미 시그널에 있음
+                continue
             
             theme = ThemeManager.get_theme(t_ticker)
             if not theme:
                 continue
             
-            # 기본 시그널 생성 (VCP 스캔 없이 테마 종목으로 추가)
             t_name = stock_names.get(t_ticker, t_ticker)
             t_market = stock_markets.get(t_ticker, 'KOSPI')
             
-            # 현재가 조회
             try:
                 cp = get_real_stock_data(t_ticker)
                 current_price = cp.get('current_price', 0) if cp else 0
@@ -518,6 +567,10 @@ def get_kr_signals():
             if current_price <= 0:
                 continue
             
+            # Theme Default NICE Layers
+            L1 = 65; L2 = 50; L3 = 50; L4 = 40; L5 = 30
+            n_total = (L1 * 0.4) + (L2 * 0.2) + (L3 * 0.1) + (L4 * 0.1) + (L5 * 0.2)
+
             signals.append({
                 'ticker': t_ticker,
                 'name': t_name,
@@ -526,22 +579,22 @@ def get_kr_signals():
                 'signal_date': today,
                 'foreign_5d': 0,
                 'inst_5d': 0,
-                'score': 65,  # 테마 기본 점수
+                'score': 65,
                 'contraction_ratio': 0.5,
                 'entry_price': current_price,
                 'current_price': current_price,
                 'return_pct': 0,
                 'status': 'THEME',
-                'final_score': 55,  # 테마 기본 점수
-                # NICE Layers for Radar Chart (Theme default)
+                'final_score': round(n_total, 1),
+                'nice_tech_score': L1,
                 'nice_layers': {
-                    'L1_technical': 65,
-                    'L2_supply': 15,
-                    'L3_sentiment': 50,
-                    'L4_macro': 35,
-                    'L5_institutional': 10,
-                    'total': 175,
-                    'max_total': 300
+                    'L1_technical': L1,
+                    'L2_supply': L2,
+                    'L3_sentiment': L3,
+                    'L4_macro': L4,
+                    'L5_institutional': L5,
+                    'total': round(n_total, 1),
+                    'max_total': 100
                 },
                 'stop_loss': int(current_price * 0.93),
                 'tp1': int(current_price * 1.10),
@@ -600,7 +653,13 @@ def get_kr_signals():
             'signals': signals_sorted,
             'count': len(signals_sorted),
             'total_filtered': len(signals),
-            'generated_at': datetime.now().isoformat()
+            'generated_at': datetime.now().isoformat(),
+            'standard': 'NICE-VCP-v1.1',
+            'data_sources': {
+                'price': 'FinanceDataReader/pykrx',
+                'supply': 'pykrx',
+                'analysis': 'Gemini-2.0-Flash'
+            }
         })
         
     except Exception as e:
@@ -696,7 +755,7 @@ def kr_ai_analysis():
         
         # 2. Load Cached AI Text (to save API costs and latency)
         cached_ai_texts = {}
-        cached_market_analysis = {}
+        cached_market_analysis = ""
         KR_AI_ANALYSIS_FILE = 'kr_market/data/kr_ai_analysis.json'
         
         if os.path.exists(KR_AI_ANALYSIS_FILE):
@@ -705,7 +764,7 @@ def kr_ai_analysis():
                     cached_full = json.load(f)
                     
                     # Extract Market Analysis
-                    cached_market_analysis = cached_full.get('market_analysis', {})
+                    cached_market_analysis = cached_full.get('market_analysis', "")
                     
                     # Extract Stock Analysis (Index by Ticker)
                     if 'signals' in cached_full:
@@ -749,6 +808,58 @@ def kr_ai_analysis():
             'note': 'Real-time data synced with Signals API'
         }
         
+        return jsonify(result)
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+# ============================================================
+# OHLCV History API (for lightweight-charts frontend)
+# ============================================================
+@app.route('/api/kr/history/<ticker>')
+def api_kr_history(ticker):
+    """Return OHLCV candle data for a stock ticker using pykrx."""
+    try:
+        if not PYKRX_AVAILABLE:
+            return jsonify({'error': 'pykrx not available'}), 503
+
+        period = request.args.get('period', '1y')
+        period_days = {'3m': 90, '6m': 180, '1y': 365, '2y': 730}.get(period, 365)
+
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=period_days)
+
+        df = pykrx_stock.get_market_ohlcv(
+            start_date.strftime('%Y%m%d'),
+            end_date.strftime('%Y%m%d'),
+            ticker
+        )
+
+        if df is None or df.empty:
+            return jsonify([])
+
+        # Normalize column names (pykrx returns Korean headers)
+        col_map = {
+            '시가': 'open', '고가': 'high', '저가': 'low',
+            '종가': 'close', '거래량': 'volume'
+        }
+        df = df.rename(columns=col_map)
+
+        # Build response
+        result = []
+        for idx, row in df.iterrows():
+            result.append({
+                'date': idx.strftime('%Y-%m-%d'),
+                'open': int(row.get('open', 0)),
+                'high': int(row.get('high', 0)),
+                'low': int(row.get('low', 0)),
+                'close': int(row.get('close', 0)),
+                'volume': int(row.get('volume', 0)),
+            })
+
         return jsonify(result)
 
     except Exception as e:
@@ -982,21 +1093,181 @@ def kr_vcp_scan():
 
 @app.route('/api/kr/jongga-v2')
 def api_jongga_v2():
-    """종가베팅 V2 시그널 조회 (데이터 파일 기반)"""
+    """종가베팅 V2 시그널 조회 (VCP 시그널 자동 변환)"""
     try:
-        # 데이터 파일 경로
+        # 먼저 기존 데이터 파일 확인
         data_file = 'data/jongga_v2_latest.json'
         
-        if not os.path.exists(data_file):
-            return jsonify({
-                'signals': [],
-                'count': 0,
-                'message': '시그널 데이터가 없습니다. /api/kr/jongga-v2/run 을 실행하세요.'
-            })
+        if os.path.exists(data_file):
+            with open(data_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        else:
+            # 데이터 파일 없으면 VCP 시그널에서 자동 변환
+            signals_csv = 'kr_market/data/signals_log.csv'
+            signals = []
+            
+            if os.path.exists(signals_csv):
+                import pandas as pd
+                df = pd.read_csv(signals_csv)
+                today = datetime.now().strftime('%Y-%m-%d')
+                
+                for _, row in df.iterrows():
+                    ticker = str(row.get('ticker', '')).zfill(6)
+                    score = float(row.get('score', 0))
+                    
+                    # VCP → 종가배팅 포맷 변환
+                    signals.append({
+                        'stock_code': ticker,
+                        'stock_name': row.get('name', ticker),
+                        'market': row.get('market', 'KOSPI'),
+                        'grade': 'S' if score >= 85 else 'A' if score >= 75 else 'B' if score >= 65 else 'C',
+                        'score': {
+                            'total': int(min(12, score / 8)),  # 100점 → 12점 변환
+                            'news': 1,
+                            'volume': 2,
+                            'chart': 2,
+                            'candle': 1,
+                            'consolidation': 1 if row.get('contraction_ratio', 1) < 0.15 else 0,
+                            'supply': 2 if row.get('foreign_5d', 0) > 0 or row.get('inst_5d', 0) > 0 else 0,
+                            'llm_reason': ''
+                        },
+                        'current_price': float(row.get('current_price', 0)),
+                        'entry_price': float(row.get('entry_price', 0)),
+                        'stop_price': float(row.get('entry_price', 0)) * 0.93,
+                        'target_price': float(row.get('entry_price', 0)) * 1.15,
+                        'change_pct': 0.0,
+                        'trading_value': 0,
+                        'foreign_5d': int(row.get('foreign_5d', 0)),
+                        'inst_5d': int(row.get('inst_5d', 0)),
+                        'news_items': [],
+                        'signal_date': row.get('signal_date', today)
+                    })
+                
+                # 점수순 정렬
+                signals.sort(key=lambda x: x['score']['total'], reverse=True)
+            
+            data = {
+                'signals': signals[:30],  # 상위 30개
+                'date': datetime.now().strftime('%Y-%m-%d'),
+                'processing_time_ms': 0,
+                'updated_at': datetime.now().isoformat(),
+                'source': 'VCP_AUTO_CONVERT'
+            }
         
-        with open(data_file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        # [Antigravity] Inject Dynamic Themes & Metadata
+        from kr_market.theme_manager import ThemeManager
         
+        signals = data.get('signals', [])
+        for sig in signals:
+            ticker = sig.get('stock_code', '')
+            if ticker:
+                # Inject Theme
+                sig['theme'] = ThemeManager.get_theme(str(ticker).zfill(6)) or ''
+                
+                # Ensure final_score exists (for sorting)
+                if 'final_score' not in sig:
+                    score_obj = sig.get('score', {})
+                    if isinstance(score_obj, dict):
+                        sig['final_score'] = score_obj.get('total', 0) * 10
+                    else:
+                         sig['final_score'] = 0
+                
+                # [FIX] Calculate nice_layers for NICE Model Radar Chart
+                if 'nice_layers' not in sig:
+                    # Get raw score - from CSV it's a float like 50.6
+                    score_obj = sig.get('score', {})
+                    if isinstance(score_obj, dict):
+                        raw_score = score_obj.get('total', 0)
+                    else:
+                        raw_score = float(score_obj) if score_obj else 0
+                    
+                    contraction = sig.get('contraction_ratio', 0.5)
+                    if contraction is None:
+                        contraction = 0.5
+                    foreign_5d = sig.get('foreign_5d', 0) or 0
+                    inst_5d = sig.get('inst_5d', 0) or 0
+                    
+                    # L1: Technical (VCP Score normalized to 0-100)
+                    # Raw score is typically 0-12 for jongga scoring, or 0-100 for other sources
+                    if raw_score <= 12:
+                        L1_technical = min(int(raw_score * 100 / 12), 100)
+                    else:
+                        L1_technical = min(int(raw_score), 100)
+                    
+                    # L2: Supply/Demand (contraction_ratio: lower = tighter = better)
+                    # 0.05 = very tight (score 95), 0.5 = average (score 50), 1.0 = loose (score 0)
+                    L2_supply = max(0, min(int((1 - contraction) * 100), 100))
+                    
+                    # L3: Sentiment (based on news & change_pct)
+                    change_pct = sig.get('change_pct', 0) or 0
+                    news_count = len(sig.get('news_items', []))
+                    L3_sentiment = min(50 + int(change_pct * 5) + (news_count * 10), 100)
+                    L3_sentiment = max(0, L3_sentiment)
+                    
+                    # L4: Macro (from macro-indicators if available)
+                    L4_macro = 50  # Base neutral
+                    theme = sig.get('theme', '')
+                    if theme in ['방산', '조선', '환율수혜']:
+                        L4_macro += 10
+                    elif theme in ['반도체', 'AI인프라', 'AI전력']:
+                        L4_macro += 12
+                    L4_macro = max(0, min(100, L4_macro))
+                    
+                    # L5: Institutional (0-100 연속 정규화)
+                    net_buy = (foreign_5d + inst_5d)
+                    if net_buy > 10_000_000_000:
+                        L5_institutional = 95
+                    elif net_buy > 1_000_000_000:
+                        L5_institutional = 80
+                    elif net_buy > 100_000_000:
+                        L5_institutional = 65
+                    elif net_buy > 0:
+                        L5_institutional = 50
+                    elif net_buy > -100_000_000:
+                        L5_institutional = 35
+                    else:
+                        L5_institutional = 15
+                    
+                    # Weighted total (0-100)
+                    nice_total = (L1_technical * 0.35) + (L2_supply * 0.20) + (L3_sentiment * 0.15) + (L4_macro * 0.10) + (L5_institutional * 0.20)
+                    nice_total = max(0, min(100, round(nice_total, 1)))
+                    
+                    sig['nice_layers'] = {
+                        'L1_technical': L1_technical,
+                        'L2_supply': L2_supply,
+                        'L3_sentiment': L3_sentiment,
+                        'L4_macro': L4_macro,
+                        'L5_institutional': L5_institutional,
+                        'total': nice_total,
+                        'max_total': 100,
+                        'ai_verified': False,  # AI 분석 미실행 시그널
+                    }
+                    
+                    # Update grade based on NICE total
+                    if nice_total >= 80:
+                        sig['grade'] = 'S'
+                    elif nice_total >= 65:
+                        sig['grade'] = 'A'
+                    elif nice_total >= 50:
+                        sig['grade'] = 'B'
+                    elif nice_total >= 35:
+                        sig['grade'] = 'C'
+                    else:
+                        sig['grade'] = 'D'
+                
+                # Ensure return_pct exists for frontend
+                if 'return_pct' not in sig:
+                    current = sig.get('current_price', 0)
+                    entry = sig.get('entry_price', 0)
+                    if entry and entry > 0:
+                        sig['return_pct'] = ((current - entry) / entry) * 100
+                    else:
+                        sig['return_pct'] = sig.get('change_pct', 0)
+        
+        # Ensure 'source' metadata
+        if 'source' not in data:
+            data['source'] = 'YFinance'
+
         return jsonify(data)
         
     except Exception as e:
@@ -1175,9 +1446,10 @@ def api_kr_hot_themes():
     """Get AI analysis for hot themes (Defense, Chips, AI Power)"""
     try:
         cache_file = 'kr_market/data/cache/theme_analysis.json'
+        force_refresh = request.args.get('force_refresh', 'false').lower() == 'true'
         
-        # Check cache (VALID FOR 6 HOURS)
-        if os.path.exists(cache_file):
+        # Check cache (VALID FOR 6 HOURS, skip if force_refresh)
+        if not force_refresh and os.path.exists(cache_file):
             mod_time = datetime.fromtimestamp(os.path.getmtime(cache_file))
             if datetime.now() - mod_time < timedelta(hours=6):
                 with open(cache_file, 'r', encoding='utf-8') as f:
@@ -1417,4 +1689,5 @@ if __name__ == '__main__':
     
     # Start Flask server
     print("🚀 Flask Server Starting on port 5001...")
-    app.run(debug=True, host='127.0.0.1', port=5001)
+    port = int(os.environ.get('PORT', 5001))
+    app.run(debug=True, host='0.0.0.0', port=port)

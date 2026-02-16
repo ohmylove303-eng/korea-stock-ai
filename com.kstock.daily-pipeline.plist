@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- 고유 식별자 -->
+    <key>Label</key>
+    <string>com.kstock.daily-pipeline</string>
+
+    <!-- 실행 명령 -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/jungsunghoon/Desktop/한국주식/run_daily_pipeline.sh</string>
+    </array>
+
+    <!-- 실행 시각: 매일 15:35 KST (장 마감 후 5분) -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>15</integer>
+        <key>Minute</key>
+        <integer>35</integer>
+    </dict>
+
+    <!-- 작업 디렉토리 -->
+    <key>WorkingDirectory</key>
+    <string>/Users/jungsunghoon/Desktop/한국주식</string>
+
+    <!-- 표준 출력/에러 로그 -->
+    <key>StandardOutPath</key>
+    <string>/Users/jungsunghoon/Desktop/한국주식/logs/launchd_stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/jungsunghoon/Desktop/한국주식/logs/launchd_stderr.log</string>
+
+    <!-- 놓친 실행 보정 (Mac이 꺼져있다 켜지면 실행) -->
+    <key>StartInterval</key>
+    <integer>0</integer>
+
+    <!-- 프로세스 자원 제한 해제 -->
+    <key>ProcessType</key>
+    <string>Standard</string>
+
+    <!-- 환경 변수 -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+        <key>LANG</key>
+        <string>ko_KR.UTF-8</string>
+    </dict>
+</dict>
+</plist>

@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Node (frontend is separate)
+frontend/
+node_modules/
+
+# IDEs & OS
+.git/
+.gitignore
+.DS_Store
+.vscode/
+.idea/
+.agent/
+
+# Logs & temp
+*.log
+logs/
+*.db
+*.sqlite3
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Docs
+*.md
+BLUEPRINT_*
+RENDER_DEPLOY*
+SETUP_GUIDE*
+
+# Temp/debug files
+temp_*
+debug_*
+verify_*
+curl_output*
+signals_log_debug*
+outcome_report_*
+*.txt
+
+# LaunchAgents
+com.kstock.*.plist
+
+# Tests
+tests/
+__tests__/

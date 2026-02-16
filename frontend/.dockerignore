@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+.next/
+
+# Nested duplicates (symlinks or copies)
+frontend/
+kr_market/
+flask_app.py
+
+# Logs & temp
+*.log
+*.db
+
+# IDEs & OS
+.git/
+.gitignore
+.DS_Store
+.vscode/
+.idea/
+
+# Tests
+__tests__/
+testsprite_tests/
+jest.config.js
+jest.setup.ts
+
+# Docs
+*.md
+BLUEPRINT_*
