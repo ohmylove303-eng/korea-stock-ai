@@ -15,7 +15,7 @@
 set -e
 
 # === 설정 ===
-PROJECT_ID="${GCP_PROJECT:-$(gcloud config get-value project)}"
+PROJECT_ID="${GCP_PROJECT:-adroit-particle-470608-v2}"
 REGION="${GCP_REGION:-asia-northeast3}"
 BACKEND_SERVICE="kstock-backend"
 FRONTEND_SERVICE="kstock-frontend"
@@ -63,7 +63,6 @@ gcloud run deploy "${BACKEND_SERVICE}" \
     --min-instances 0 \
     --max-instances 3 \
     --set-env-vars "FLASK_DEBUG=false" \
-    --set-secrets "GOOGLE_API_KEY=GOOGLE_API_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest" \
     --project="${PROJECT_ID}" \
     --quiet
 
