@@ -5,6 +5,7 @@ LLM 분석기 - Gemini API를 사용한 뉴스 감성 분석
 import os
 import json
 import asyncio
+import datetime
 from typing import Dict, List, Optional, Any
 
 import google.generativeai as genai
@@ -61,8 +62,16 @@ class LLMAnalyzer:
 - 2점: 중간 호재 (계약, 실적 개선 등)
 - 3점: 강한 호재 (대규모 수주, FDA 승인, 기술 이전 등)
 
+### 최신 데이터 기준 시간 (Timestamp):
+{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+### 분석 지침 (CRITICAL):
+1. 당신의 과거 학습 데이터가 아닌, 오직 아래 제공된 **뉴스 목록**에만 기반하여 초당적인 분석을 수행하십시오.
+2. 뉴스가 현재 가격에 아직 선반영되지 않은 '새로운 정보'인지 판단하십시오.
+3. 정보가 부족할 경우 억지로 추측하지 말고 중립적인 점수를 부여하십시오.
+
 ### 응답 형식 (JSON만 출력):
-{{"score": 2, "reason": "종합적인 요약 이유 (1~2문장)"}}
+{{"score": 2, "reason": "제공된 뉴스 컨텍스트(날짜 포함)에 기반한 분석 요약"}}
 """
         
         try:
@@ -177,11 +186,13 @@ class LLMAnalyzer:
 ### 최신 뉴스
 {news_text}
 
-### 분석 요청
-위 정보를 바탕으로 단기(1~3일) 매매 추천을 해주세요.
+### 분석 지침 (CRITICAL):
+- 기준 시간: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+- **과거 지식이 아닌 제공된 실시간 수치와 뉴스**에만 근거하여 추천을 생성하십시오.
+- '환각'을 방지하기 위해 불확실한 호재는 보수적으로 판단하십시오.
 
 ### 응답 형식 (JSON만 출력):
-{{"action": "BUY", "confidence": 85, "reason": "투자 이유 1~2문장"}}
+{{"action": "BUY", "confidence": 85, "reason": "투자 정보(데이터 출처 고려)에 기반한 구체적 근거"}}
 
 action은 BUY, HOLD, SELL 중 하나입니다.
 confidence는 0~100 사이 정수입니다.

@@ -1,15 +1,16 @@
 "use client";
 
-import { Container, SimpleGrid, Group, Stack, Badge, Text, Button, Loader, Center, SegmentedControl } from "@mantine/core";
-import { IconCpu, IconChartLine, IconTrendingUp, IconBolt, IconAlertTriangle, IconClock, IconCategory } from "@tabler/icons-react";
+import { Container, SimpleGrid, Group, Stack, Badge, Text, Button, Loader, Center, SegmentedControl, Tooltip } from "@mantine/core";
+import { IconCpu, IconChartLine, IconTrendingUp, IconBolt, IconAlertTriangle, IconClock, IconCategory, IconRefresh } from "@tabler/icons-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { PageTitle } from "@/components/ui/PageTitle";
 import { SignalTable } from "@/components/SignalTable";
 import { MacroDashboard } from "@/components/MacroDashboard";
 import { SectorGrid } from "@/components/SectorGrid";
 import { StockChartModal } from "@/components/StockChartModal";
-import useSWR from "swr";
-import { fetchSignals, fetchMarketStatus, fetchAIAnalysis, Signal } from "@/lib/api";
+import { DatabaseStatusBoard } from "@/components/DatabaseStatusBoard";
+import useSWR, { mutate } from "swr";
+import { fetchSignals, fetchMarketStatus, fetchAIAnalysis, Signal, fetchJson } from "@/lib/api";
 import Link from "next/link";
 import { useState, useMemo } from "react";
 
@@ -17,12 +18,29 @@ export default function Home() {
   const [selectedSignal, setSelectedSignal] = useState<Signal | null>(null);
   const [chartOpened, setChartOpened] = useState(false);
   const [activeTheme, setActiveTheme] = useState<string>('ALL');
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    try {
+      setRefreshing(true);
+      // Trigger backend screener
+      await fetch('/api/kr/jongga-v2/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+      // Revalidate SWR cache
+      await mutate('/api/kr/jongga-v2');
+      await mutate('/api/kr/market-status');
+      await mutate('/api/kr/ai-analysis');
+    } catch (e) {
+      console.error('Refresh failed:', e);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Theme categories for filtering
-  const themes = ['ALL', '반도체', '방산', 'AI전력', '환율수혜', '바이오'];
+  const themes = ['ALL', '반도체', '방산', 'AI전력', '조선', 'AI인프라', '환율수혜', '바이오'];
 
-  // Data Fetching
-  const { data: signalData, error: signalError, isLoading: signalLoading } = useSWR('/api/kr/signals', fetchSignals, {
+  // Data Fetching (Use Single Source of Truth: Jongga V2)
+  const { data: v2Data, error: signalError, isLoading: signalLoading } = useSWR('/api/kr/jongga-v2', fetchSignals, {
     refreshInterval: 1000 * 60 * 5 // 5 minutes
   });
 
@@ -39,18 +57,33 @@ export default function Home() {
     setChartOpened(true);
   };
 
-  if (signalError) return (
-    <Center h="100vh" className="bg-black text-white">
-      <Stack align="center">
-        <IconAlertTriangle size={48} className="text-red-500" />
-        <Text fw={700} size="xl">Connection Lost</Text>
-        <Text c="dimmed">Failed to connect to the market server.</Text>
-        <Button variant="light" color="gray" onClick={() => window.location.reload()}>Retry</Button>
-      </Stack>
-    </Center>
-  );
+  // Transform V2 Data to Signal Interface
+  const signals: Signal[] = useMemo(() => {
+    if (!v2Data?.signals) return [];
+    // @ts-ignore
+    return v2Data.signals.map((s: any) => ({
+      ...s,
+      ticker: s.stock_code || s.ticker || '',
+      name: s.stock_name || s.name || '',
+      // Map V2 score object to number for compatibility
+      score: typeof s.score === 'object' ? s.score.total : (s.score ?? 0),
+      // Ensure other fields match
+      final_score: s.final_score || (typeof s.score === 'object' ? s.score.total * 10 : 0),
+      // Explicit field mapping to prevent undefined
+      current_price: s.current_price ?? 0,
+      entry_price: s.entry_price ?? 0,
+      return_pct: s.return_pct ?? s.change_pct ?? 0,
+      contraction_ratio: s.contraction_ratio ?? undefined,
+      foreign_5d: s.foreign_5d ?? 0,
+      inst_5d: s.inst_5d ?? 0,
+      tp1: s.target_price ?? s.tp1 ?? 0,
+      tp2: s.tp2 ?? 0,
+      nice_layers: s.nice_layers ?? undefined,
+      theme: s.theme ?? '',
+      market: s.market ?? '',
+    }));
+  }, [v2Data]);
 
-  const signals = signalData?.signals || [];
   // Sort by final_score if available, otherwise score
   const sortedSignals = [...signals].sort((a, b) => (b.final_score || b.score) - (a.final_score || a.score));
 
@@ -64,6 +97,17 @@ export default function Home() {
 
   const isMarketOpen = marketData?.is_open ?? false;
   const marketStatusMsg = marketData?.message || "Check Status";
+
+  if (signalError) return (
+    <Center h="100vh" className="bg-black text-white">
+      <Stack align="center">
+        <IconAlertTriangle size={48} className="text-red-500" />
+        <Text fw={700} size="xl">Connection Lost</Text>
+        <Text c="dimmed">Failed to connect to the market server.</Text>
+        <Button variant="light" color="gray" onClick={() => window.location.reload()}>Retry</Button>
+      </Stack>
+    </Center>
+  );
 
   return (
     <main className="min-h-screen bg-black pb-20">
@@ -175,7 +219,30 @@ export default function Home() {
             <GlassCard p={0} delay={0.4} className="min-h-[500px]">
               <div className="p-6 border-b border-white/10">
                 <Group justify="space-between">
-                  <Text size="lg" fw={700}>Real-time VCP Signals</Text>
+                  <div>
+                    <Group gap="sm">
+                      <Text size="lg" fw={700}>Real-time VCP Signals</Text>
+                      <Tooltip label="백엔드 스크리너 실행 → 최신 데이터 수집">
+                        <Button
+                          size="xs"
+                          variant="light"
+                          color="blue"
+                          radius="xl"
+                          loading={refreshing}
+                          leftSection={<IconRefresh size={14} />}
+                          onClick={handleRefresh}
+                        >
+                          {refreshing ? '수집중...' : '새로고침'}
+                        </Button>
+                      </Tooltip>
+                    </Group>
+                    <Group gap={6} mt={4}>
+                      <Badge variant="dot" color="green" size="xs">Source: YFinance</Badge>
+                      <Text size="xs" c="dimmed" suppressHydrationWarning>
+                        {v2Data?.updated_at ? new Date(v2Data.updated_at).toLocaleTimeString() : 'Loading...'}
+                      </Text>
+                    </Group>
+                  </div>
                   <Group gap="xs">
                     {themes.map(t => (
                       <Button
@@ -245,6 +312,9 @@ export default function Home() {
             </GlassCard>
           </div>
         </div>
+
+        {/* 4. Database Status Board (Antigravity Mission) */}
+        <DatabaseStatusBoard />
 
       </Container>
 

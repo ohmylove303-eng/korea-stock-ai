@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.kstock.ai-refresh</string>
+    
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/jungsunghoon/Desktop/한국주식/.venv/bin/python</string>
+        <string>/Users/jungsunghoon/Desktop/한국주식/refresh_ai_cache.py</string>
+        <string>--max</string>
+        <string>15</string>
+    </array>
+    
+    <key>WorkingDirectory</key>
+    <string>/Users/jungsunghoon/Desktop/한국주식</string>
+    
+    <key>StartCalendarInterval</key>
+    <dict>
+        <!-- 매일 16:00에 AI 분석 캐시 갱신 -->
+        <key>Hour</key>
+        <integer>16</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+    
+    <key>StandardOutPath</key>
+    <string>/Users/jungsunghoon/Desktop/한국주식/logs/ai_refresh.log</string>
+    
+    <key>StandardErrorPath</key>
+    <string>/Users/jungsunghoon/Desktop/한국주식/logs/ai_refresh_error.log</string>
+    
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/Users/jungsunghoon/Desktop/한국주식/.venv/bin</string>
+        <key>GOOGLE_API_KEY</key>
+        <string>${GOOGLE_API_KEY}</string>
+    </dict>
+    
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>

@@ -1,0 +1,60 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-02-13T21:53:39.455891",
+  "ticker": "042700",
+  "final_score": 94,
+  "gates": {
+    "L1_Liquidity": {
+      "passed": true,
+      "score": 100,
+      "reason": "Turnover: 3981.0억 (Min 100.0억)",
+      "details": {
+        "turnover": 398102455125.0
+      }
+    },
+    "L2_Technical": {
+      "passed": true,
+      "score": 70,
+      "reason": "⚔️Mini + VCP(0.69)",
+      "details": {
+        "is_palantir": false,
+        "is_palantir_mini": true,
+        "ma20": 188885.0,
+        "ma60": 153993.33333333334,
+        "vcp_ratio": 0.69
+      }
+    },
+    "L3_Flow": {
+      "passed": true,
+      "score": 100,
+      "reason": "Net Flow: 27773325846",
+      "details": {
+        "foreign": 11902853934,
+        "inst": 15870471912
+      }
+    },
+    "L4_Quality": {
+      "passed": true,
+      "score": 80,
+      "reason": "Market Cap Pass",
+      "details": {
+        "cap": 1000.0
+      }
+    }
+  },
+  "execution_plan": {
+    "ticker": "042700",
+    "action": "BUY",
+    "entry_price": 202500,
+    "stop_loss": 188500,
+    "tp1": 233000,
+    "tp2": 263000,
+    "quantity": 4,
+    "time_stop_date": "2026-02-28",
+    "risk_reward_ratio": 2.18
+  },
+  "metadata": {
+    "engine": "KR-NICE-vPerfect",
+    "gate_weights": "standard"
+  }
+}

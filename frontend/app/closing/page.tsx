@@ -9,7 +9,8 @@ import useSWR from "swr";
 import { useState } from "react";
 import Link from "next/link";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5001";
+// Use relative URL to leverage Next.js rewrite proxy (avoids CORS issues)
+const API_BASE = '/api/kr';
 
 // Types
 interface JonggaSignal {
@@ -54,7 +55,7 @@ interface StatusData {
 }
 
 // Fetcher
-const fetcher = (url: string) => fetch(API_BASE + url).then(res => res.json());
+const fetcher = (url: string) => fetch(url).then(res => res.json());
 
 // Grade badge colors
 const gradeColors: Record<string, string> = {
@@ -65,11 +66,12 @@ const gradeColors: Record<string, string> = {
 };
 
 // Format number (억 단위)
-const formatValue = (value: number): string => {
-    if (value >= 100000000000) return `${(value / 1000000000000).toFixed(1)}조`;
-    if (value >= 100000000) return `${(value / 100000000).toFixed(0)}억`;
-    if (value >= 10000) return `${(value / 10000).toFixed(0)}만`;
-    return value.toLocaleString();
+const formatValue = (value: number | null | undefined): string => {
+    const v = value ?? 0;
+    if (v >= 100000000000) return `${(v / 1000000000000).toFixed(1)}조`;
+    if (v >= 100000000) return `${(v / 100000000).toFixed(0)}억`;
+    if (v >= 10000) return `${(v / 10000).toFixed(0)}만`;
+    return v.toLocaleString();
 };
 
 export default function ClosingPage() {
@@ -78,11 +80,11 @@ export default function ClosingPage() {
     const [isRunning, setIsRunning] = useState(false);
 
     // Data fetching
-    const { data, error, isLoading, mutate } = useSWR<JonggaData>('/api/kr/jongga-v2', fetcher, {
+    const { data, error, isLoading, mutate } = useSWR<JonggaData>(`${API_BASE}/jongga-v2`, fetcher, {
         refreshInterval: 1000 * 60 * 5
     });
 
-    const { data: statusData } = useSWR<StatusData>('/api/kr/jongga-v2/status', fetcher, {
+    const { data: statusData } = useSWR<StatusData>(`${API_BASE}/jongga-v2/status`, fetcher, {
         refreshInterval: 1000 * 60
     });
 
@@ -90,7 +92,7 @@ export default function ClosingPage() {
     const runScreener = async () => {
         setIsRunning(true);
         try {
-            const res = await fetch(`${API_BASE}/api/kr/jongga-v2/run`, {
+            const res = await fetch(`${API_BASE}/jongga-v2/run`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ capital: 50000000 })
@@ -115,8 +117,19 @@ export default function ClosingPage() {
             <Stack align="center">
                 <IconAlertTriangle size={48} className="text-red-500" />
                 <Text fw={700} size="xl">Connection Error</Text>
-                <Text c="dimmed">Failed to load Jongga V2 signals.</Text>
-                <Button variant="light" color="gray" onClick={() => window.location.reload()}>Retry</Button>
+                <Text c="dimmed">Backend: {API_BASE}</Text>
+                <Text c="dimmed" size="sm">{error?.message || 'Failed to load signals'}</Text>
+                <Button variant="light" color="gray" onClick={() => mutate()}>Retry</Button>
+            </Stack>
+        </Center>
+    );
+
+    if (isLoading) return (
+        <Center h="100vh" className="bg-black text-white">
+            <Stack align="center">
+                <Loader size="xl" color="violet" />
+                <Text fw={700} size="lg" mt="md">종가베팅 신호 로딩 중...</Text>
+                <Text c="dimmed" size="sm">Backend: {API_BASE}</Text>
             </Stack>
         </Center>
     );
@@ -190,7 +203,7 @@ export default function ClosingPage() {
                         <Group justify="space-between" align="start">
                             <Stack gap={4}>
                                 <Text c="dimmed" size="xs" fw={700} tt="uppercase">Updated</Text>
-                                <Text size="sm" fw={600}>
+                                <Text size="sm" fw={600} suppressHydrationWarning>
                                     {statusData?.last_updated ? new Date(statusData.last_updated).toLocaleTimeString('ko-KR') : '-'}
                                 </Text>
                             </Stack>
@@ -279,24 +292,24 @@ export default function ClosingPage() {
                                                 </Badge>
                                             </Table.Td>
                                             <Table.Td style={{ textAlign: 'right' }}>
-                                                <Text fw={700}>{signal.current_price.toLocaleString()}원</Text>
+                                                <Text fw={700}>{(signal.current_price ?? 0).toLocaleString()}원</Text>
                                             </Table.Td>
                                             <Table.Td style={{ textAlign: 'right' }}>
                                                 <Text
                                                     fw={700}
-                                                    c={signal.change_pct > 0 ? 'red' : signal.change_pct < 0 ? 'blue' : 'gray'}
+                                                    c={(signal.change_pct ?? 0) > 0 ? 'red' : (signal.change_pct ?? 0) < 0 ? 'blue' : 'gray'}
                                                 >
-                                                    {signal.change_pct > 0 ? '+' : ''}{signal.change_pct.toFixed(2)}%
+                                                    {(signal.change_pct ?? 0) > 0 ? '+' : ''}{(signal.change_pct ?? 0).toFixed(2)}%
                                                 </Text>
                                             </Table.Td>
                                             <Table.Td style={{ textAlign: 'right' }}>
                                                 <Group gap={4} justify="flex-end">
-                                                    <Text fw={700}>{signal.score.total}/12</Text>
+                                                    <Text fw={700}>{signal.score?.total ?? 0}/12</Text>
                                                     <Progress
-                                                        value={(signal.score.total / 12) * 100}
+                                                        value={((signal.score?.total ?? 0) / 12) * 100}
                                                         size="sm"
                                                         w={50}
-                                                        color={signal.score.total >= 10 ? 'pink' : signal.score.total >= 8 ? 'violet' : 'blue'}
+                                                        color={(signal.score?.total ?? 0) >= 10 ? 'pink' : (signal.score?.total ?? 0) >= 8 ? 'violet' : 'blue'}
                                                     />
                                                 </Group>
                                             </Table.Td>
@@ -305,14 +318,14 @@ export default function ClosingPage() {
                                             </Table.Td>
                                             <Table.Td>
                                                 <Group gap={4}>
-                                                    {signal.foreign_5d > 0 ? (
+                                                    {(signal.foreign_5d ?? 0) > 0 ? (
                                                         <Badge color="red" variant="light" size="xs">외+</Badge>
-                                                    ) : signal.foreign_5d < 0 ? (
+                                                    ) : (signal.foreign_5d ?? 0) < 0 ? (
                                                         <Badge color="blue" variant="light" size="xs">외-</Badge>
                                                     ) : null}
-                                                    {signal.inst_5d > 0 ? (
+                                                    {(signal.inst_5d ?? 0) > 0 ? (
                                                         <Badge color="red" variant="light" size="xs">기+</Badge>
-                                                    ) : signal.inst_5d < 0 ? (
+                                                    ) : (signal.inst_5d ?? 0) < 0 ? (
                                                         <Badge color="blue" variant="light" size="xs">기-</Badge>
                                                     ) : null}
                                                 </Group>
@@ -347,12 +360,19 @@ export default function ClosingPage() {
                         ticker: selectedSignal.stock_code,
                         name: selectedSignal.stock_name,
                         market: selectedSignal.market,
-                        current_price: selectedSignal.current_price,
-                        score: selectedSignal.score.total,
-                        entry_price: selectedSignal.entry_price,
-                        return_pct: 0,
+                        current_price: selectedSignal.current_price ?? 0,
+                        score: selectedSignal.score?.total ?? 0,
+                        entry_price: selectedSignal.entry_price ?? 0,
+                        return_pct: selectedSignal.change_pct ?? 0,
                         status: 'JONGGA',
-                        theme: selectedSignal.grade
+                        theme: (selectedSignal as any).theme || selectedSignal.grade || '',
+                        contraction_ratio: (selectedSignal as any).contraction_ratio,
+                        foreign_5d: selectedSignal.foreign_5d ?? 0,
+                        inst_5d: selectedSignal.inst_5d ?? 0,
+                        tp1: selectedSignal.target_price ?? 0,
+                        tp2: 0,
+                        nice_layers: (selectedSignal as any).nice_layers,
+                        final_score: (selectedSignal as any).final_score ?? 0,
                     }}
                 />
             )}

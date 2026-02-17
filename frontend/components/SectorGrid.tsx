@@ -11,13 +11,15 @@ export function SectorGrid() {
 
     return (
         <Grid gutter="xs" mt="md">
-            {data.sectors.map((sector) => {
-                const isPositive = sector.change_pct >= 0;
+            {data.sectors.map((sector, idx) => {
+                const changePct = sector.change_pct ?? 0;
+                const vol = sector.volume ?? 0;
+                const isPositive = changePct >= 0;
                 const color = isPositive ? "red" : "blue"; // KR Market Style
                 const bgColor = isPositive ? "rgba(255, 100, 100, 0.1)" : "rgba(100, 100, 255, 0.1)";
 
                 return (
-                    <Grid.Col key={sector.name} span={{ base: 6, sm: 4, md: 2 }}>
+                    <Grid.Col key={`${sector.name}-${idx}`} span={{ base: 6, sm: 4, md: 2 }}>
                         <Paper
                             p="xs"
                             radius="md"
@@ -33,10 +35,10 @@ export function SectorGrid() {
                                     {sector.name}
                                 </Text>
                                 <Text size="sm" fw={800} c={color}>
-                                    {isPositive ? "+" : ""}{sector.change_pct.toFixed(2)}%
+                                    {isPositive ? "+" : ""}{changePct.toFixed(2)}%
                                 </Text>
                                 <Text size="xs" c="dimmed" style={{ fontSize: '9px' }}>
-                                    {(sector.volume / 1000000).toFixed(1)}M Vol
+                                    {(vol / 1000000).toFixed(1)}M Vol
                                 </Text>
                             </Stack>
                         </Paper>

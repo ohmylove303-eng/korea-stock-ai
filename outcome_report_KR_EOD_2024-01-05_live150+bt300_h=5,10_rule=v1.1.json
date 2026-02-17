@@ -1,0 +1,16 @@
+{
+  "run_id": "KR|EOD|2024-01-05|live150+bt300|h=5,10|rule=v1.1",
+  "asof_date": "2024-01-05",
+  "updated_outcomes": 12,
+  "error_top3": [
+    [
+      "MODEL_MISSPEC",
+      2
+    ]
+  ],
+  "all_errors": {
+    "MODEL_MISSPEC": 2
+  },
+  "generated_at_kst": "2026-02-05T15:22:06+09:00",
+  "upgrade_proposals_v1_1": []
+}

@@ -1,0 +1,60 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-02-13T21:53:38.886587",
+  "ticker": "047810",
+  "final_score": 94,
+  "gates": {
+    "L1_Liquidity": {
+      "passed": true,
+      "score": 100,
+      "reason": "Turnover: 1867.2억 (Min 100.0억)",
+      "details": {
+        "turnover": 186716840279.99997
+      }
+    },
+    "L2_Technical": {
+      "passed": true,
+      "score": 70,
+      "reason": "⚔️Mini + VCP(0.82)",
+      "details": {
+        "is_palantir": false,
+        "is_palantir_mini": true,
+        "ma20": 165155.0,
+        "ma60": 134526.66666666666,
+        "vcp_ratio": 0.82
+      }
+    },
+    "L3_Flow": {
+      "passed": true,
+      "score": 100,
+      "reason": "Net Flow: 13931873615",
+      "details": {
+        "foreign": 5970802978,
+        "inst": 7961070637
+      }
+    },
+    "L4_Quality": {
+      "passed": true,
+      "score": 80,
+      "reason": "Market Cap Pass",
+      "details": {
+        "cap": 1000.0
+      }
+    }
+  },
+  "execution_plan": {
+    "ticker": "047810",
+    "action": "BUY",
+    "entry_price": 176500,
+    "stop_loss": 164000,
+    "tp1": 203000,
+    "tp2": 229500,
+    "quantity": 5,
+    "time_stop_date": "2026-02-28",
+    "risk_reward_ratio": 2.12
+  },
+  "metadata": {
+    "engine": "KR-NICE-vPerfect",
+    "gate_weights": "standard"
+  }
+}

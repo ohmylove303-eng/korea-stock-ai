@@ -27,7 +27,7 @@ export default function RootLayout({
       </head>
       <body>
         <Providers>
-          <Navigation />
+          {/* <Navigation /> - Removed as per user request (Redundant) */}
           {children}
         </Providers>
       </body>

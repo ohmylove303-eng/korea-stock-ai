@@ -11,7 +11,10 @@ export function MacroDashboard() {
     if (isLoading) return <Loader size="sm" color="gray" />;
     if (error || !data) return null;
 
-    const { exchange_rate, interest_spread, fx_reserves, crisis } = data;
+    const exchange_rate = data?.exchange_rate || { rate: 0, change_pct: 0, risk_level: 'unknown' };
+    const interest_spread = data?.interest_spread || { spread_bp: 0, us_rate: 0, kr_rate: 0, capital_risk: 'unknown' };
+    const fx_reserves = data?.fx_reserves || { current_reserves: 0, change: 0 };
+    const crisis = data?.crisis || { crisis_score: 0, crisis_level: 'normal', message: '-' };
 
     // Crisis Ring Color
     const getCrisisColor = (level: string) => {
@@ -31,18 +34,18 @@ export function MacroDashboard() {
                     <Stack gap="xs">
                         <Group justify="space-between">
                             <Text size="xs" c="dimmed" fw={700}>USD/KRW</Text>
-                            <ThemeIcon size="xs" color={exchange_rate.change_pct >= 0 ? "red" : "blue"} variant="light">
+                            <ThemeIcon size="xs" color={(exchange_rate.change_pct ?? 0) >= 0 ? "red" : "blue"} variant="light">
                                 <IconCurrencyDollar size={12} />
                             </ThemeIcon>
                         </Group>
                         <Group align="flex-end" gap="xs">
-                            <Text fw={700} size="xl">₩{exchange_rate.rate.toLocaleString()}</Text>
-                            <Text size="sm" c={exchange_rate.change_pct >= 0 ? "red" : "blue"} fw={600} mb={2}>
-                                {exchange_rate.change_pct > 0 ? "+" : ""}{exchange_rate.change_pct}%
+                            <Text fw={700} size="xl">₩{(exchange_rate.rate ?? 0).toLocaleString()}</Text>
+                            <Text size="sm" c={(exchange_rate.change_pct ?? 0) >= 0 ? "red" : "blue"} fw={600} mb={2}>
+                                {(exchange_rate.change_pct ?? 0) > 0 ? "+" : ""}{exchange_rate.change_pct ?? 0}%
                             </Text>
                         </Group>
                         <Text size="xs" c={exchange_rate.risk_level === 'normal' ? 'teal' : 'orange'}>
-                            Risk: {exchange_rate.risk_level.toUpperCase()}
+                            Risk: {(exchange_rate.risk_level ?? 'N/A').toUpperCase()}
                         </Text>
                     </Stack>
                 </Paper>
@@ -107,7 +110,7 @@ export function MacroDashboard() {
                         <Stack gap={0}>
                             <Text size="xs" c="dimmed" fw={700}>MARKET STRESS</Text>
                             <Text fw={700} size="sm" c={getCrisisColor(crisis.crisis_level)}>
-                                {crisis.crisis_level.toUpperCase()}
+                                {(crisis.crisis_level ?? 'normal').toUpperCase()}
                             </Text>
                             <Text size="xs" c="dimmed" style={{ fontSize: '10px' }}>{crisis.message}</Text>
                         </Stack>

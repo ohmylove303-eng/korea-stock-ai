@@ -1,0 +1,143 @@
+# Cloud Build CI/CD Pipeline
+# Triggered on push to main branch
+# Builds and deploys both backend and frontend to Cloud Run
+
+substitutions:
+  _REGION: asia-northeast3
+  _BACKEND_SERVICE: kstock-backend
+  _FRONTEND_SERVICE: kstock-frontend
+  _BACKEND_IMAGE: gcr.io/${PROJECT_ID}/kstock-backend
+  _FRONTEND_IMAGE: gcr.io/${PROJECT_ID}/kstock-frontend
+
+steps:
+  # ============================================
+  # Step 1: Build Backend Docker Image
+  # ============================================
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - '${_BACKEND_IMAGE}:${SHORT_SHA}'
+      - '-t'
+      - '${_BACKEND_IMAGE}:latest'
+      - '-f'
+      - 'Dockerfile.backend'
+      - '.'
+    id: 'build-backend'
+
+  # ============================================
+  # Step 2: Push Backend Image
+  # ============================================
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '--all-tags'
+      - '${_BACKEND_IMAGE}'
+    id: 'push-backend'
+    waitFor: ['build-backend']
+
+  # ============================================
+  # Step 3: Deploy Backend to Cloud Run
+  # ============================================
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - '${_BACKEND_SERVICE}'
+      - '--image'
+      - '${_BACKEND_IMAGE}:${SHORT_SHA}'
+      - '--region'
+      - '${_REGION}'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8080'
+      - '--memory'
+      - '1Gi'
+      - '--cpu'
+      - '1'
+      - '--timeout'
+      - '300'
+      - '--min-instances'
+      - '0'
+      - '--max-instances'
+      - '3'
+      - '--update-secrets'
+      - 'GOOGLE_API_KEY=google-api-key:latest,OPENAI_API_KEY=openai-api-key:latest'
+      - '--set-env-vars'
+      - 'FLASK_DEBUG=false'
+      - '--quiet'
+    id: 'deploy-backend'
+    waitFor: ['push-backend']
+
+  # ============================================
+  # Step 4: Build Frontend Docker Image
+  # ============================================
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - '${_FRONTEND_IMAGE}:${SHORT_SHA}'
+      - '-t'
+      - '${_FRONTEND_IMAGE}:latest'
+      - '.'
+    dir: 'frontend'
+    id: 'build-frontend'
+
+  # ============================================
+  # Step 5: Push Frontend Image
+  # ============================================
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '--all-tags'
+      - '${_FRONTEND_IMAGE}'
+    id: 'push-frontend'
+    waitFor: ['build-frontend']
+
+  # ============================================
+  # Step 6: Deploy Frontend to Cloud Run
+  # ============================================
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - '${_FRONTEND_SERVICE}'
+      - '--image'
+      - '${_FRONTEND_IMAGE}:${SHORT_SHA}'
+      - '--region'
+      - '${_REGION}'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '3000'
+      - '--memory'
+      - '512Mi'
+      - '--cpu'
+      - '1'
+      - '--timeout'
+      - '60'
+      - '--min-instances'
+      - '0'
+      - '--max-instances'
+      - '5'
+      - '--quiet'
+    id: 'deploy-frontend'
+    waitFor: ['push-frontend']
+
+# Build images list for Cloud Build history
+images:
+  - '${_BACKEND_IMAGE}:${SHORT_SHA}'
+  - '${_BACKEND_IMAGE}:latest'
+  - '${_FRONTEND_IMAGE}:${SHORT_SHA}'
+  - '${_FRONTEND_IMAGE}:latest'
+
+# Increase timeout for full pipeline (default 10min may not be enough)
+timeout: '1200s'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

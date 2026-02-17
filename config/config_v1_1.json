@@ -1,0 +1,35 @@
+{
+    "model_rule_version": "v1.1",
+    "market": "KR",
+    "universes": {
+        "live150": {
+            "size": 150
+        },
+        "bt300": {
+            "size": 300
+        }
+    },
+    "window_days": 5,
+    "horizons_days": [
+        5,
+        10
+    ],
+    "short_cutover_date": "2025-01-01",
+    "gates": {
+        "min_trading_value_krw": 10000000000,
+        "max_short_ratio_pct": 15.0,
+        "require_fx": true,
+        "require_kospi": false,
+        "kospi_trend_block_pct": -3.0
+    },
+    "scoring": {
+        "w_foreign_z": 40.0,
+        "w_inst_z": 30.0,
+        "w_tech": 20.0,
+        "w_regime": 10.0
+    },
+    "decision": {
+        "buy_score": 70.0,
+        "watch_score": 55.0
+    }
+}

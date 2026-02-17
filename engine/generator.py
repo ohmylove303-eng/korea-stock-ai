@@ -87,7 +87,8 @@ class SignalGenerator:
                 try:
                     signal = await self._analyze_stock(stock, target_date)
                     
-                    if signal and signal.grade != "C":
+                    # Allow all grades for now (to ensure data visibility)
+                    if signal:
                         all_signals.append(signal)
                         print(f"  [{signal.grade}] {signal.stock_name} - Score: {signal.score.total}")
                     
@@ -95,6 +96,8 @@ class SignalGenerator:
                     await self._rate_limit()
                     
                 except Exception as e:
+                    import traceback
+                    traceback.print_exc()
                     print(f"[WARN] Failed to analyze {stock.name}: {e}")
                     continue
         
@@ -103,8 +106,9 @@ class SignalGenerator:
         all_signals.sort(key=lambda s: (grade_order.get(s.grade, 3), -s.score.total))
         
         # 4. 상위 N개만
-        max_signals = self.config.max_positions * 2
-        return all_signals[:max_signals]
+        # 4. 상위 N개만 (Dashboard display purpose: Show all)
+        # max_signals = self.config.max_positions * 2
+        return all_signals[:50]
     
     async def _analyze_stock(
         self,

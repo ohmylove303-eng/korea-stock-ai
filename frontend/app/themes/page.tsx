@@ -1,15 +1,31 @@
 "use client";
 
-import { Container, Stack, Text, SimpleGrid, Badge, Skeleton, Button } from "@mantine/core";
-import { IconHome, IconClock, IconCategory } from "@tabler/icons-react";
+import { Container, Stack, Text, SimpleGrid, Badge, Skeleton, Button, Group, Tooltip, Loader } from "@mantine/core";
+import { IconHome, IconClock, IconCategory, IconRefresh } from "@tabler/icons-react";
 import { PageTitle } from "@/components/ui/PageTitle";
 import { SectorGrid } from "@/components/SectorGrid";
-import useSWR from "swr";
+import useSWR, { mutate } from "swr";
 import { fetchHotThemes } from "@/lib/api";
 import Link from "next/link";
+import { useState } from "react";
 
 export default function ThemesPage() {
     const { data: themeData, isLoading } = useSWR('/api/kr/themes', fetchHotThemes);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const handleRefresh = async () => {
+        try {
+            setRefreshing(true);
+            // Force refresh AI analysis
+            await fetch('/api/kr/hot-themes?force_refresh=true');
+            // Revalidate SWR cache
+            await mutate('/api/kr/themes');
+        } catch (e) {
+            console.error('Theme refresh failed:', e);
+        } finally {
+            setRefreshing(false);
+        }
+    };
 
     return (
         <main className="min-h-screen bg-black">
@@ -45,7 +61,22 @@ export default function ThemesPage() {
 
                 {/* 2. Theme List (AI Analysis) */}
                 <Stack>
-                    <Text fw={700} c="dimmed" size="sm">HOT THEMES (AI ANALYSIS)</Text>
+                    <Group justify="space-between" align="center">
+                        <Text fw={700} c="dimmed" size="sm">HOT THEMES (AI ANALYSIS)</Text>
+                        <Tooltip label="Gemini AI 실시간 테마 분석 갱신 (1200자 이내)">
+                            <Button
+                                size="xs"
+                                variant="light"
+                                color="teal"
+                                radius="xl"
+                                loading={refreshing}
+                                leftSection={refreshing ? <Loader size={12} color="white" /> : <IconRefresh size={14} />}
+                                onClick={handleRefresh}
+                            >
+                                {refreshing ? '분석중...' : 'AI 새로고침'}
+                            </Button>
+                        </Tooltip>
+                    </Group>
                     <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }}>
                         {isLoading ? (
                             Array(3).fill(0).map((_, i) => (

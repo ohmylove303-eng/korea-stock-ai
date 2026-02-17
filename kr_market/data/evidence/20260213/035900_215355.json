@@ -1,0 +1,60 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-02-13T21:53:55.614393",
+  "ticker": "035900",
+  "final_score": 80,
+  "gates": {
+    "L1_Liquidity": {
+      "passed": true,
+      "score": 100,
+      "reason": "Turnover: 331.2억 (Min 100.0억)",
+      "details": {
+        "turnover": 33119245320.0
+      }
+    },
+    "L2_Technical": {
+      "passed": true,
+      "score": 61,
+      "reason": "VCP(0.77)",
+      "details": {
+        "is_palantir": false,
+        "is_palantir_mini": false,
+        "ma20": 70750.0,
+        "ma60": 69620.0,
+        "vcp_ratio": 0.77
+      }
+    },
+    "L3_Flow": {
+      "passed": true,
+      "score": 100,
+      "reason": "Net Flow: 2140796451",
+      "details": {
+        "foreign": 917484193,
+        "inst": 1223312258
+      }
+    },
+    "L4_Quality": {
+      "passed": true,
+      "score": 80,
+      "reason": "Market Cap Pass",
+      "details": {
+        "cap": 1000.0
+      }
+    }
+  },
+  "execution_plan": {
+    "ticker": "035900",
+    "action": "BUY",
+    "entry_price": 70700,
+    "stop_loss": 65800,
+    "tp1": 81300,
+    "tp2": 91900,
+    "quantity": 14,
+    "time_stop_date": "2026-02-28",
+    "risk_reward_ratio": 2.16
+  },
+  "metadata": {
+    "engine": "KR-NICE-vPerfect",
+    "gate_weights": "standard"
+  }
+}
